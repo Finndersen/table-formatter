@@ -1,3 +1,5 @@
+import csv
+
 class TableFormatter(object):
     header_mapping = {}
     value_lookups = {}
@@ -22,7 +24,7 @@ class TableFormatter(object):
         # Make sure table data is valid format and convert into list of dicts
         if type(table_data) in {tuple,list}:
             if table_data:
-                if type(table_data[0]) in {list, tuple, pyodbc.Row}:
+                if type(table_data[0]) in {list, tuple}:
                     labelled_table = [dict(zip(field_names,row)) for row in table_data]
                 elif isinstance(table_data[0],dict):
                     labelled_table=table_data
