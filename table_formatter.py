@@ -1,16 +1,18 @@
-import csv
-
 class TableFormatter(object):
     header_mapping = {}
     value_lookups = {}
     title = None
+    source_tz=None
+    display_tz=None
+    timestamp_format='%Y-%m-%d %H:%M:%S'
 
-    def __init__(self,table_data,field_names,header_mapping=None,value_lookups=None,title=None):
+    def __init__(self,table_data,field_names,header_mapping=None,value_lookups=None,title=None, source_tz=None, display_tz=None):
         # Override class defaults with instance attributes
         self.header_mapping = header_mapping or self.header_mapping
         self.value_lookups = value_lookups or self.value_lookups
         self.title = title or self.title
-
+        self.source_tz=source_tz or self.source_tz
+        self.display_tz = display_tz or self.display_tz
         # Build translated headers
         self.headers=[
             (header_mapping[field_name]
@@ -24,7 +26,7 @@ class TableFormatter(object):
         # Make sure table data is valid format and convert into list of dicts
         if type(table_data) in {tuple,list}:
             if table_data:
-                if type(table_data[0]) in {list, tuple}:
+                if type(table_data[0]) in {list, tuple, pyodbc.Row}:
                     labelled_table = [dict(zip(field_names,row)) for row in table_data]
                 elif isinstance(table_data[0],dict):
                     labelled_table=table_data
@@ -36,14 +38,20 @@ class TableFormatter(object):
             raise Exception('Table structure must be a list or tuple')
 
         # Convert table to list of lists with fields in order of field names and perform value lookups where necessary
-        processed_table= [
-                [self.value_lookups[field][row[field]]
-                    if (field in self.value_lookups and row[field] in self.value_lookups[field]) else
-                row[field]
-            for field in field_names]
-        for row in labelled_table
-        ]
+        processed_table= [[self.translate_field_value(field,row[field]) for field in field_names]
+                for row in labelled_table]
         return processed_table
+
+    def translate_field_value(self,field,value):
+        if isinstance(value,datetime.datetime):
+            if self.source_tz and self.display_tz:
+                value=value.replace(tzinfo=self.source_tz).astimezone(self.display_tz)
+            return value.strftime(self.timestamp_format)
+        elif field in self.value_lookups and value in self.value_lookups[field]:
+            return self.value_lookups[field][value]
+        else:
+            return value
+
 
     # Format table as HTML with a maximum number of rows and optional classes
     def as_html(self, maxrows=20, classes='table-striped'):
