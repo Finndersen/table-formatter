@@ -1,3 +1,8 @@
+from jinja2 import Markup
+from dateutil import tz
+import datetime
+import pyodbc, csv
+
 class TableFormatter(object):
     header_mapping = {}
     value_lookups = {}
@@ -6,19 +11,19 @@ class TableFormatter(object):
     display_tz=None
     timestamp_format='%Y-%m-%d %H:%M:%S'
 
-    def __init__(self,table_data,field_names,header_mapping=None,value_lookups=None,title=None, source_tz=None, display_tz=None):
+    def __init__(self,table_data,field_names,header_mapping=None,value_lookups=None,title=None, source_tz=None, display_tz=None, timestamp_format=None):
         # Override class defaults with instance attributes
         self.header_mapping = header_mapping or self.header_mapping
         self.value_lookups = value_lookups or self.value_lookups
         self.title = title or self.title
         self.source_tz=source_tz or self.source_tz
         self.display_tz = display_tz or self.display_tz
+        self.timestamp_format = timestamp_format or self.timestamp_format
         # Build translated headers
-        self.headers=[
-            (header_mapping[field_name]
-                if field_name in header_mapping else
-            field_name)
-                for field_name in field_names]
+        self.headers=[(self.header_mapping[field_name]
+            if field_name in self.header_mapping
+            else field_name)
+            for field_name in field_names]
         #Valdiate and process table data
         self.data = self.build_table_data(table_data,field_names)
 
@@ -26,7 +31,7 @@ class TableFormatter(object):
         # Make sure table data is valid format and convert into list of dicts
         if type(table_data) in {tuple,list}:
             if table_data:
-                if type(table_data[0]) in {list, tuple, pyodbc.Row}:
+                if type(table_data[0]) in {list, tuple}: #add  pyodbc.Row if required:
                     labelled_table = [dict(zip(field_names,row)) for row in table_data]
                 elif isinstance(table_data[0],dict):
                     labelled_table=table_data
@@ -51,7 +56,6 @@ class TableFormatter(object):
             return self.value_lookups[field][value]
         else:
             return value
-
 
     # Format table as HTML with a maximum number of rows and optional classes
     def as_html(self, maxrows=20, classes='table-striped'):
